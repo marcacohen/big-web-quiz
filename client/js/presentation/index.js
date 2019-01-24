@@ -146,27 +146,15 @@ class App extends BoundComponent {
           <img src="/static/images/title.png" class="opening-media opening-media--show"/>
           <div class={`blackout ${showBlackout ? 'blackout--show' : ''}`}/>
           <div class={`opening-media ${showVideo == 'intro' ? 'opening-media--show' : ''}`}>
-            <video
-              ref={el => this.introVideo = el}
-              class="opening-media__src" src="/static/video/intro.mp4"
-              preload
-            />
           </div>
           <div class={`opening-media ${showVideo == 'prize' ? 'opening-media--show' : ''}`}>
-            <video
-              ref={el => this.prizeVideo = el}
-              class="opening-media__src" src="/static/video/prize.mp4"
-              loop
-              preload
-            />
           </div>
         </div>
       );
     }
 
     return (
-      <div class="presentation-wrapper">
-        <Audio key="the-amaze-audio" closed={questionClosed} stepItUp={showLiveResults} />
+      <Audio key="the-amaze-audio" closed={questionClosed} stepItUp={showLiveResults}>
         <Question
           key={`question-${question.id}`}
           id={question.id}
@@ -195,7 +183,7 @@ class App extends BoundComponent {
           </div>
           : ''
         }
-      </div>
+      </Audio>
     );
   }
 }

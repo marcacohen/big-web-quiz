@@ -32,6 +32,8 @@ class App extends BoundComponent {
       showingLeaderboard: props.showingLeaderboard,
       showingVideo: props.showingVideo,
       showingBlackout: props.showingBlackout,
+      naiveLoginAllowed: props.naiveLoginAllowed,
+      showingEndScreen: props.showingEndScreen,
       addingQuestion: false,
       editingQuestions: [], // ids
       outputValue: '',
@@ -194,6 +196,30 @@ class App extends BoundComponent {
       throw err;
     }
   }
+  async onAllowNaiveLoginClick() {
+    const response = await fetch(`/admin/allow-naive-login.json`, {
+      method: 'POST',
+      credentials: 'include'
+    });
+
+    const data = await response.json();
+
+    if (data.err) throw Error(data.err);
+
+    this.setState(data);
+  }
+  async onDisallowNaiveLoginClick() {
+    const response = await fetch(`/admin/disallow-naive-login.json`, {
+      method: 'POST',
+      credentials: 'include'
+    });
+
+    const data = await response.json();
+
+    if (data.err) throw Error(data.err);
+
+    this.setState(data);
+  }
   async onOutputClick(types) {
     try {
       const response = await fetch('/admin/db.json?' + types.map(t => `types[]=${t}`).join('&'), {
@@ -259,9 +285,33 @@ class App extends BoundComponent {
     }
   }
 
+  async setEndScreen(show) {
+    const response = await fetch(`/admin/set-end-screen.json`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({show})
+    });
+
+    const data = await response.json();
+
+    if (data.err) throw Error(data.err);
+
+    this.setState(data);
+  }
+
+  onShowEndScreenClick() {
+    return this.setEndScreen(true);
+  }
+
+  onHideEndScreenClick() {
+    return this.setEndScreen(false);
+  }
+
   render(props, {
     questions, addingQuestion, editingQuestions, showingLeaderboard,
-    outputValue, view, showingVideo, showingBlackout
+    outputValue, view, showingVideo, showingBlackout, naiveLoginAllowed,
+    showingEndScreen
   }) {
     return <div>
 
@@ -293,6 +343,17 @@ class App extends BoundComponent {
             <QuestionUpdate onQuestionSaved={this.onQuestionSaved}/>
             :
             <div class="admin__questions-add">
+              {showingEndScreen ?
+                <button onClick={this.onHideEndScreenClick}>Hide End Screen</button>
+                :
+                <button onClick={this.onShowEndScreenClick}>Show End Screen</button>
+              }
+
+              {naiveLoginAllowed ?
+                <button onClick={this.onDisallowNaiveLoginClick}>Disable naive login</button>
+                :
+                <button onClick={this.onAllowNaiveLoginClick}>Allow naive login</button>
+              }
               {showingBlackout ?
                 <button onClick={this.onHideBlackoutClick}>Hide blackout</button>
                 :
@@ -442,5 +503,11 @@ fetch('/admin/initial-state.json', {
   credentials: 'include'
 }).then(response => response.json()).then(data => {
   const main = document.querySelector('.main-content');
-  render(<App questions={data.questions} showingLeaderboard={data.showingLeaderboard} showingVideo={data.showingVideo} showingBlackout={data.showingBlackout} />, main);
+  render(<App
+    questions={data.questions}
+    showingLeaderboard={data.showingLeaderboard}
+    showingVideo={data.showingVideo}
+    showingBlackout={data.showingBlackout}
+    naiveLoginAllowed={data.naiveLoginAllowed}
+    showingEndScreen={data.showingEndScreen} />, main);
 });

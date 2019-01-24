@@ -14,8 +14,10 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
+import uuidV4 from 'uuid/v4';
+
 import {Question, Quiz} from './models';
-import {User} from '../user/models';
+import {User, naiveLoginAllowed} from '../user/models';
 import {longPollers} from '../long-pollers/views';
 import EventStream from '../event-stream';
 
@@ -40,7 +42,9 @@ export function adminStateJson(req, res) {
       questions,
       showingLeaderboard: quiz.showingLeaderboard,
       showingVideo: quiz.showingVideo,
-      showingBlackout: quiz.showingBlackout
+      showingBlackout: quiz.showingBlackout,
+      showingEndScreen: quiz.showingEndScreen,
+      naiveLoginAllowed: naiveLoginAllowed()
     });
   });
 }
@@ -54,16 +58,16 @@ export function deleteQuestionJson(req, res) {
   });
 }
 
-export function updateQuestionJson(req, res) {
+function upsertQuestion(data) {
   const update = {
-    title: req.body.title,
-    text: req.body.text,
-    code: req.body.code,
-    codeType: req.body.codeType,
-    multiple: !!req.body.multiple,
-    scored: !!req.body.scored,
-    priority: !!req.body.priority,
-    answers: req.body.answers
+    title: data.title,
+    text: data.text,
+    code: data.code,
+    codeType: data.codeType,
+    multiple: !!data.multiple,
+    scored: !!data.scored,
+    priority: !!data.priority,
+    answers: data.answers
   };
 
   if (!Array.isArray(update.answers)) {
@@ -73,31 +77,42 @@ export function updateQuestionJson(req, res) {
   // remove answers without text
   update.answers = update.answers.filter(answer => String(answer.text).trim());
 
-  if (!update.answers.length) {
-    res.json({err: "No answers provided"});
-    return;
+  if (!update.answers.length) throw Error("No answers provided");
+
+  if (data.key) {
+    update.key = data.key;
+    return Question.findOneAndUpdate({key: data.key}, update, {new: true, upsert: true});
+  }
+  
+  if (data.id) {
+    return Question.findByIdAndUpdate(data.id, update, {new: true});
   }
 
-  let p;
+  update.key = uuidV4();
 
-  if (req.body.id) {
-    p = Question.findByIdAndUpdate(req.body.id, update, {new: true});
-  }
-  else {
-    p = new Question(update).save();
-  }
+  return new Question(update).save();
+}
 
-  p.then(newQuestion => {
+export function updateQuestionJson(req, res) {
+  upsertQuestion(req.body).then(newQuestion => {
     if (!newQuestion) throw Error('No record found');
     adminStateJson(req, res);
-    return;
   }).catch(err => {
     res.status(500).json({err: err.message});
   });
 }
 
-export function setQuestionJson(req, res) {
-  Question.findById(req.body.id).then(question => {
+export async function setQuestionJson(req, res) {
+  try {
+    let question;
+
+    if (req.body.question) {
+      question = await upsertQuestion(req.body.question);
+    }
+    else {
+      question = await Question.findById(req.body.id);
+    }
+
     if (!question) {
       res.status(404).json({err: "Question not found"});
       return;
@@ -110,13 +125,19 @@ export function setQuestionJson(req, res) {
     longPollers.broadcast(quiz.getState());
 
     adminStateJson(req, res);
-  }).catch(err => {
+  }
+  catch (err) {
     res.status(500).json({err: err.message});
-  });
+  }
+}
+
+function findQuestion(body) {
+  if (body.key) return Question.findOne({key: body.key});
+  return Question.findById(body.id);
 }
 
 export function closeQuestionJson(req, res) {
-  Question.findById(req.body.id).then(question => {
+  findQuestion(req.body).then(question => {
     if (!question) {
       res.status(404).json({err: "Question not found"});
       return;
@@ -138,7 +159,7 @@ export function closeQuestionJson(req, res) {
 }
 
 export function revealQuestionJson(req, res) {
-  Question.findById(req.body.id).then(question => {
+  findQuestion(req.body).then(question => {
     if (!question) {
       res.status(404).json({err: "Question not found"});
       return;
@@ -153,38 +174,45 @@ export function revealQuestionJson(req, res) {
 
     return Question.find();
   }).then(qs => User.updateScores(qs)).then(() => {
-    longPollers.broadcast(quiz.getState());
     presentationListeners.broadcast(quiz.getState());
+    longPollers.broadcast(quiz.getState());
     adminStateJson(req, res);
   }).catch(err => {
     res.status(500).json({err: err.message});
   });
 }
 
-export function deactivateQuestionJson(req, res) {
-  Question.findById(req.body.id).then(question => {
-    if (!question) {
-      res.status(404).json({err: "Question not found"});
-      return;
+export async function deactivateQuestionJson(req, res) {
+  try {
+    if (!req.body.any) {
+      const question = await findQuestion(req.body);
+
+      if (!question) {
+        res.status(404).json({ err: "Question not found" });
+        return;
+      }
+
+      if (!quiz.activeQuestion || !question.equals(quiz.activeQuestion)) {
+        res.status(404).json({ err: "This isn't the active question" });
+        return;
+      }
     }
 
-    if (!quiz.activeQuestion || !question.equals(quiz.activeQuestion)) {
-      res.status(404).json({err: "This isn't the active question"});
-      return;
+    if (quiz.activeQuestion) {
+      quiz.unsetQuestion();
+      presentationListeners.broadcast(quiz.getState());
+      longPollers.broadcast(quiz.getState());
     }
-
-    quiz.unsetQuestion();
-    longPollers.broadcast(quiz.getState());
-    presentationListeners.broadcast(quiz.getState());
 
     adminStateJson(req, res);
-  }).catch(err => {
+  }
+  catch(err) {
     res.status(500).json({err: err.message});
-  });
+  }
 }
 
 export function liveResultsQuestionJson(req, res) {
-  Question.findById(req.body.id).then(question => {
+  findQuestion(req.body).then(question => {
     if (!question) {
       res.status(404).json({err: "Question not found"});
       return;
@@ -253,6 +281,12 @@ export function showVideoJson(req, res) {
   presentationListeners.broadcast(
     Object.assign({showVideo: quiz.showingVideo}, quiz.getState())
   );
+  adminStateJson(req, res);
+}
+
+export function setEndScreen(req, res) {
+  quiz.showingEndScreen = !!req.body.show;
+  longPollers.broadcast(quiz.getState());
   adminStateJson(req, res);
 }
 

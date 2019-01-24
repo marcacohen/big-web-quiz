@@ -20,15 +20,26 @@ const ObjectId = mongoose.Schema.Types.ObjectId;
 export const ADMIN_IDS = [
   '116237864387312784020', // Jake
   '102813120987797040209', // Paul Lewis
-  '104714371990859295637'  // thebigwebquiz
+  '104714371990859295637', // thebigwebquiz
+  '111820256548303113275'  // surma
 ];
+
+let allowNaiveLogin = false;
+
+export function naiveLoginAllowed() {
+  return allowNaiveLogin;
+}
+
+export function setNaiveLogin(val) {
+  allowNaiveLogin = !!val;
+}
 
 const userSchema = mongoose.Schema({
   googleId: {type: String, unique: true, required: true, index: true},
-  name: {type: String, required: true},
-  email: {type: String, required: true},
-  avatarUrl: String,
-  optIntoLeaderboard: {type: Boolean, required: true, default: false},
+  name: {type: String, required: true, default: "Unknown name"},
+  email: String,
+  avatarUrl: {type: String, required: true, default: "/static/images/ic_tag_faces_white_18px.svg"},
+  optIntoLeaderboard: {type: Boolean, required: true, default: true},
   bannedFromLeaderboard: {type: Boolean, required: true, default: false},
   // Optimisation. See `updateScore`.
   score: {type: Number, default: 0, index: true},
@@ -61,14 +72,14 @@ userSchema.statics.updateScores = function(questions) {
         if (question.multiple) {
           for (const [i, answer] of question.answers.entries()) {
             if (answer.correct === choices.includes(i)) {
-              score += 2;
+              score++;
             }
           }
         }
         else {
           const correctIndex = question.answers.findIndex(a => a.correct);
           if (choices[0] == correctIndex) {
-            score += 10;
+            score += 4;
           }
         }
       }

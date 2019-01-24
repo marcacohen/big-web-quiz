@@ -17,6 +17,8 @@
 import mongoose from '../mongoose-db';
 
 const questionSchema = mongoose.Schema({
+  // Human readable ID
+  key: {type: String, index: true, unique: true, required: true},
   // Short title of the question, eg "Question 1"
   title: {type: String, required: true, default: "Question!"},
   // The actual question
@@ -50,6 +52,7 @@ export class Quiz {
     this._cachedUserAnswers = {};
     this.showingVideo = '';
     this.showingBlackout = false;
+    this.showingEndScreen = false;
   }
   get activeQuestion() {
     return this._activeQuestion;
@@ -136,6 +139,7 @@ export class Quiz {
         // see `correctAnswers` below
         answers: this._activeQuestion.answers.map(answer => ({text: answer.text}))
       },
+      showEndScreen: this.showingEndScreen,
       showLiveResults: this._showingLiveResults,
       questionClosed: !this._acceptingAnswers,
       // array of indexes for the correct answers

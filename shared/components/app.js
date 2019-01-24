@@ -23,6 +23,7 @@ import QuestionWaiting from './question-waiting';
 import LoginStatus from './login-status';
 import Question from './question';
 import Transition from './transition';
+import EndScreen from './end-screen';
 import LongPoll from '../long-poll';
 
 export default class App extends BoundComponent {
@@ -40,6 +41,8 @@ export default class App extends BoundComponent {
     //     answers: [{text: String}]
     //   },
     //   questionClosed: Boolean,
+    //   naiveLoginAllowed: Boolean,
+    //   showEndScreen: Boolean,
     //   correctAnswers: [Number],
     //   answersSubmitted: [Number], answers the user submitted for the question
     // }
@@ -79,7 +82,7 @@ export default class App extends BoundComponent {
       user: null
     });
   }
-  render({server}, {user, question, questionClosed, correctAnswers, answersSubmitted}) {
+  render({server}, {user, question, questionClosed, correctAnswers, answersSubmitted, naiveLoginAllowed, showEndScreen}) {
     // Question: OPEN
     const shouldShowQuestion = (question && !server) ||
 
@@ -101,31 +104,35 @@ export default class App extends BoundComponent {
           />
         </header>
         <div class="container">
-          {user ?
-            (shouldShowQuestion?
-              <Question
-                key={`question-${question.id}`}
-                id={question.id}
-                title={question.title}
-                text={question.text}
-                multiple={question.multiple}
-                answers={question.answers}
-                code={question.code}
-                codeType={question.codeType}
-                closed={questionClosed}
-                correctAnswers={correctAnswers}
-                answersSubmitted={answersSubmitted}
-              />
-              :
-              <QuestionWaiting
-                key="question-waiting"
-                user={user}
-                server={server}
-                onUserUpdate={this.onUserUpdate}
-              />
-            )
+          {showEndScreen ?
+            <EndScreen />
             :
-            <Intro key="intro"/>
+            (user ?
+              (shouldShowQuestion?
+                <Question
+                  key={`question-${question.id}`}
+                  id={question.id}
+                  title={question.title}
+                  text={question.text}
+                  multiple={question.multiple}
+                  answers={question.answers}
+                  code={question.code}
+                  codeType={question.codeType}
+                  closed={questionClosed}
+                  correctAnswers={correctAnswers}
+                  answersSubmitted={answersSubmitted}
+                />
+                :
+                <QuestionWaiting
+                  key="question-waiting"
+                  user={user}
+                  server={server}
+                  onUserUpdate={this.onUserUpdate}
+                />
+              )
+              :
+              <Intro key="intro" naiveLoginAllowed={naiveLoginAllowed}/>
+            )
           }
         </div>
         <a class="privacy" href="https://www.google.com/policies">Google Privacy Policy and Terms of Service</a>

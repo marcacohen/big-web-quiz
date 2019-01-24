@@ -43,6 +43,10 @@ export default class Question extends BoundComponent {
       });
     }
   }
+  componentDidMount() {
+    // Scroll to top for new question
+    document.documentElement.scrollTop = 0;
+  }
   async onSubmit(event) {
     event.preventDefault();
 
@@ -96,7 +100,14 @@ export default class Question extends BoundComponent {
       ).map(el => el.checked)
     })
   }
-  render({id, title, text, multiple, answers, closed, showLiveResults, correctAnswers, code, codeType, presentation}, {answersChecked, answersSubmitted, spinnerState, submittedAnswersThisSession}) {
+  render({
+    id, title, text, multiple, answers, closed,
+    showLiveResults, correctAnswers, code,
+    codeType, presentation
+  }, {
+    answersChecked, answersSubmitted, spinnerState,
+    submittedAnswersThisSession
+  }) {
     const codeEl = code && <Code code={code} codeType={codeType}></Code>;
 
     const answersToCheck = closed ? answersSubmitted : answersChecked;
@@ -129,7 +140,7 @@ export default class Question extends BoundComponent {
             <h1 class="question__title">{title}</h1>
             <p class="question__text">{text}</p>
             {codeEl}
-            <div class="question__answer-container">
+            <div class={`question__answer-container ${(answers.length == 4 && code) ? 'presentation-answer-grid' : ''}`}>
               {answers.map((answer, i) =>
                 <div class={
                   closed ?
